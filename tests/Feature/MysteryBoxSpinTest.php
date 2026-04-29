@@ -543,3 +543,32 @@ it('lets returning users open a starter-style box with real-money credits', func
     expect($response->json('winner.id'))->toBeInt();
     expect((float) $response->json('balance.total'))->toBe(21.0);
 });
+
+it('blocks spinning when active item weights do not total exactly 100', function () {
+    $user = User::factory()->create();
+
+    app(WalletService::class)->credit(
+        user: $user,
+        amount: 20,
+        type: 'promo_seed',
+        bucket: WalletService::BUCKET_PROMO,
+        creditSource: WalletService::BUCKET_PROMO,
+    );
+
+    $box = createManagedBox(['slug' => 'invalid-weight-box']);
+    addBoxItem($box, [
+        'name' => 'Item A',
+        'drop_weight' => 60,
+        'is_onboarding_only' => true,
+    ]);
+    addBoxItem($box, [
+        'name' => 'Item B',
+        'drop_weight' => 20,
+        'value_tier' => 'mid',
+    ]);
+
+    $response = $this->actingAs($user)->postJson('/boxes/invalid-weight-box/spins', []);
+
+    $response->assertStatus(422);
+    expect($response->json('message'))->toContain('weights to total exactly 100');
+});

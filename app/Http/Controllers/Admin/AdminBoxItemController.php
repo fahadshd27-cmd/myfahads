@@ -44,6 +44,7 @@ class AdminBoxItemController extends Controller
         $data['mystery_box_id'] = $box->id;
         $data['sort_order'] = $this->resolveSortOrder($box, $data['sort_order'] ?? null);
         $data = array_merge($data, $this->deriveDisplayFields($box, $data));
+        $this->assertActiveWeightBudget($box, (int) $data['drop_weight']);
 
         if ($imagePath = $this->storeUploadedImage($request)) {
             $data['image'] = $imagePath;
@@ -61,6 +62,7 @@ class AdminBoxItemController extends Controller
         $data = $this->normalizeItemRules($this->validateItem($request));
         $data['sort_order'] = $this->resolveSortOrder($box, $data['sort_order'] ?? null, $item);
         $data = array_merge($data, $this->deriveDisplayFields($box, array_merge($item->toArray(), $data)));
+        $this->assertActiveWeightBudget($box, (int) $data['drop_weight'], $item);
 
         if ($request->boolean('remove_image')) {
             $this->deleteStoredImage($item->image);
@@ -172,7 +174,7 @@ class AdminBoxItemController extends Controller
                 'image/avif',
             ])->max(5 * 1024)],
             'item_type' => ['required', 'string', 'in:coupon,digital,physical,jackpot'],
-            'drop_weight' => ['required', 'integer', 'min:0', 'max:1000000000'],
+            'drop_weight' => ['required', 'integer', 'min:0', 'max:100'],
             'sell_value_credits' => ['required', 'numeric', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:100000'],
@@ -280,5 +282,22 @@ class AdminBoxItemController extends Controller
         }
 
         return (int) ($box->items()->max('sort_order') ?? -1) + 1;
+    }
+
+    private function assertActiveWeightBudget(MysteryBox $box, int $candidateWeight, ?MysteryBoxItem $item = null): void
+    {
+        $currentActiveWeight = (int) $box->items()
+            ->where('is_active', true)
+            ->whereNull('archived_at')
+            ->when($item, fn ($query) => $query->whereKeyNot($item->id))
+            ->sum('drop_weight');
+
+        $nextActiveWeight = $currentActiveWeight + max(0, $candidateWeight);
+
+        if ($nextActiveWeight > 100) {
+            throw ValidationException::withMessages([
+                'drop_weight' => 'Active item weights cannot exceed 100 total for a box.',
+            ]);
+        }
     }
 }

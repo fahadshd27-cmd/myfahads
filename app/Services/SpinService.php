@@ -30,6 +30,13 @@ class SpinService
             throw ValidationException::withMessages(['box' => 'This box is not active.']);
         }
 
+        $activeWeightTotal = (int) $box->activeItems()->sum('drop_weight');
+        if ($activeWeightTotal !== 100) {
+            throw ValidationException::withMessages([
+                'box' => 'This box requires active item weights to total exactly 100 before spinning.',
+            ]);
+        }
+
         $clientSeed = trim($clientSeed);
         if ($clientSeed === '') {
             $clientSeed = (string) Str::uuid();
