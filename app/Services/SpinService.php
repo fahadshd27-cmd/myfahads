@@ -31,9 +31,9 @@ class SpinService
         }
 
         $activeWeightTotal = (int) $box->activeItems()->sum('drop_weight');
-        if ($activeWeightTotal <= 0) {
+        if ($activeWeightTotal !== 100) {
             throw ValidationException::withMessages([
-                'box' => 'This box needs active item weights greater than 0 before spinning.',
+                'box' => 'This box requires active item weights to total exactly 100 before spinning.',
             ]);
         }
 

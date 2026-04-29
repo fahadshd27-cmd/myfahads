@@ -544,7 +544,7 @@ it('lets returning users open a starter-style box with real-money credits', func
     expect((float) $response->json('balance.total'))->toBe(21.0);
 });
 
-it('allows spinning when active item weights are below 100 but above zero', function () {
+it('blocks spinning when active item weights do not total exactly 100', function () {
     $user = User::factory()->create();
 
     app(WalletService::class)->credit(
@@ -569,6 +569,6 @@ it('allows spinning when active item weights are below 100 but above zero', func
 
     $response = $this->actingAs($user)->postJson('/boxes/invalid-weight-box/spins', []);
 
-    $response->assertSuccessful();
-    expect($response->json('winner.id'))->toBeInt();
+    $response->assertStatus(422);
+    expect($response->json('message'))->toContain('weights to total exactly 100');
 });
