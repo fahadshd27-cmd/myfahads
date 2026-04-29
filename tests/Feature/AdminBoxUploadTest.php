@@ -424,3 +424,39 @@ it('archives used items instead of deleting them', function () {
     expect($item->archived_at)->not->toBeNull();
     expect($item->is_active)->toBeFalse();
 });
+
+it('blocks adding item weights that push active box total above 100', function () {
+    $admin = User::factory()->create([
+        'email_verified_at' => now(),
+        'is_admin' => true,
+        'status' => 'active',
+    ]);
+
+    $box = MysteryBox::query()->create([
+        'name' => 'Weight Cap Box',
+        'slug' => 'weight-cap-box',
+        'price_credits' => 10,
+        'is_active' => true,
+    ]);
+
+    MysteryBoxItem::query()->create([
+        'mystery_box_id' => $box->id,
+        'name' => 'Heavy Existing Item',
+        'item_type' => 'digital',
+        'rarity' => 'common',
+        'value_tier' => 'low',
+        'drop_weight' => 80,
+        'estimated_value_credits' => 4,
+        'sell_value_credits' => 2,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.items.store', $box->id), [
+            'name' => 'Too Heavy New Item',
+            'item_type' => 'digital',
+            'drop_weight' => 25,
+            'sell_value_credits' => 3,
+        ])
+        ->assertSessionHasErrors('drop_weight');
+});
